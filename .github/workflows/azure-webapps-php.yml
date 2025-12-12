@@ -21,6 +21,9 @@ jobs:
         with:
           php-version: "8.2"
 
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y zip unzip
+
       - name: Install dependencies (optional)
         run: |
           if [ -f composer.json ]; then
@@ -28,8 +31,7 @@ jobs:
           fi
 
       - name: Create deployment package
-        run: |
-          zip -r app.zip .
+        run: zip -r app.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -46,6 +48,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: php-app
+
+      - name: List files
+        run: ls -la
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
