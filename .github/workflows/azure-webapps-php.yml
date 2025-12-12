@@ -10,7 +10,7 @@ permissions:
 
 env:
   AZURE_WEBAPP_NAME: unidet-api
-  WORKING_DIRECTORY: api
+  WORKING_DIRECTORY: .
 
 jobs:
   build:
@@ -31,9 +31,8 @@ jobs:
 
       - name: Create deployment package
         run: |
-          cd $WORKING_DIRECTORY
-          zip -r ../app.zip . -x "*.git*" -x "*node_modules*"
-          cd ..
+          cd "${{ env.WORKING_DIRECTORY }}"
+          zip -r app.zip . -x "*.git*" -x "*node_modules*" -x ".github/*"
           ls -lah app.zip
 
       - name: Upload artifact
