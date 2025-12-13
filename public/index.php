@@ -13,7 +13,7 @@ require __DIR__ . '/../vendor/autoload.php';
  * .env (solo local)
  * ========================= */
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
-$dotenv->safeLoad(); // No revienta si no existe .env (Azure normalmente no lo tendrá)
+$dotenv->safeLoad();
 
 /* =========================
  * Slim
@@ -22,23 +22,27 @@ $app = AppFactory::create();
 
 /**
  * BASE_PATH
- * - Local XAMPP: /unidet-api/public (si lo usas)
- * - Azure con php -S: vacío
+ * - Local XAMPP: /unidet-api/public (o lo que uses)
+ * - Azure SIN rewrite: /index.php
  */
-$basePath = (string)($_ENV['BASE_PATH'] ?? getenv('BASE_PATH') ?? '');
-$basePath = trim($basePath);
+$isAzure = getenv('WEBSITE_INSTANCE_ID') || getenv('WEBSITE_SITE_NAME');
 
-if ($basePath === '/') {
-    $basePath = '';
+if ($isAzure) {
+    // En Azure te está entrando como /index.php/...
+    $app->setBasePath('/index.php');
+} else {
+    $basePath = (string)($_ENV['BASE_PATH'] ?? getenv('BASE_PATH') ?? '');
+    $basePath = trim($basePath);
+    $basePath = rtrim($basePath, '/'); // "/" -> ""
+
+    if ($basePath !== '') {
+        $app->setBasePath($basePath);
+    }
 }
 
-$basePath = rtrim($basePath, '/');
-
-if ($basePath !== '') {
-    $app->setBasePath($basePath);
-}
-
+/* OJO: RoutingMiddleware DESPUÉS de setBasePath */
 $app->addRoutingMiddleware();
+
 $app->addBodyParsingMiddleware();
 
 /* =========================
@@ -53,12 +57,12 @@ $app->addErrorMiddleware($appDebug, true, true);
  * ========================= */
 $allowedOrigin = (string)($_ENV['ALLOWED_ORIGIN'] ?? getenv('ALLOWED_ORIGIN') ?? 'http://localhost:5173');
 
+// Preflight
 $app->options('/{routes:.+}', function (Request $request, Response $response) {
     return $response;
 });
 
 $app->add(function (Request $request, RequestHandler $handler) use ($allowedOrigin): Response {
-    // Preflight rápido
     if (strtoupper($request->getMethod()) === 'OPTIONS') {
         $response = new \Slim\Psr7\Response();
     } else {
