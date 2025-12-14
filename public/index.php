@@ -27,13 +27,18 @@ $app = AppFactory::create();
  */
 $isAzure = getenv('WEBSITE_INSTANCE_ID') || getenv('WEBSITE_SITE_NAME');
 
-if (!$isAzure) {
+// En Azure vas a entrar como /index.php/...
+if ($isAzure) {
+    $app->setBasePath('/index.php');
+} else {
+    // Local (XAMPP/subcarpeta)
     $basePath = (string)($_ENV['BASE_PATH'] ?? getenv('BASE_PATH') ?? '');
-    $basePath = rtrim(trim($basePath), '/'); // "/" -> ""
+    $basePath = rtrim(trim($basePath), '/');
     if ($basePath !== '') {
         $app->setBasePath($basePath);
     }
 }
+
 
 $app->addRoutingMiddleware();
 $app->addBodyParsingMiddleware();
