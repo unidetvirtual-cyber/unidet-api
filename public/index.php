@@ -16,55 +16,48 @@ $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->safeLoad();
 
 /* =========================
+ * Slim
+ * ========================= */
+$app = AppFactory::create();
+
+/* =========================
  * Detectar Azure
  * ========================= */
 $isAzure = (bool)(getenv('WEBSITE_INSTANCE_ID') || getenv('WEBSITE_SITE_NAME'));
 
 /* =========================================================
- * AZURE FALLBACK ROUTER (modo ?r=)
- * =========================================================
- * Permite llamar:
- *   /index.php?r=/ping
- *   /index.php?r=/news
- *   /index.php?r=/courses
- *
- * Importante: en modo ?r= forzamos que Slim "vea" la ruta como /news, /courses, etc.
- */
-$usingQueryRouter = false;
+ * Azure router dual:
+ * 1) /index.php/ping     (PATH_INFO)
+ * 2) /index.php?r=news   (QUERY)  <-- IMPORTANTE: usa r=news (SIN /)
+ * ========================================================= */
+$hasR = $isAzure && isset($_GET['r']) && is_string($_GET['r']) && trim($_GET['r']) !== '';
 
-if ($isAzure && isset($_GET['r']) && is_string($_GET['r']) && $_GET['r'] !== '') {
-    $usingQueryRouter = true;
+if ($hasR) {
+    // acepta r=news o r=/news (pero en Azure usa r=news)
+    $route = '/' . ltrim(trim((string)$_GET['r']), '/');
 
-    $route = '/' . ltrim($_GET['r'], '/');   // "/courses"
-    $_SERVER['REQUEST_URI'] = $route;        // Slim verá "/courses"
-    $_SERVER['PATH_INFO']   = $route;
+    // conserva otros query params: ?r=news&page=2
+    $rest = $_GET;
+    unset($rest['r']);
+    $qs = http_build_query($rest);
 
-    // Opcional: limpia r para que no estorbe
-    // unset($_GET['r']);
-}
+    $_SERVER['QUERY_STRING'] = $qs;
+    $_SERVER['REQUEST_URI']  = $route . ($qs ? ('?' . $qs) : '');
+    $_SERVER['PATH_INFO']    = $route;
 
-/* =========================
- * Slim
- * ========================= */
-$app = AppFactory::create();
-
-/**
- * BASE_PATH:
- * - Azure normal (URL /index.php/<ruta>): basePath = /index.php
- * - Azure con ?r= (forzamos REQUEST_URI=/ruta): basePath = "" (vacío)
- * - Local: BASE_PATH desde .env si estás en subcarpeta (XAMPP)
- */
-if ($isAzure) {
-    if (!$usingQueryRouter) {
-        // Tu forma actual: /index.php/ping
-        $app->setBasePath('/index.php');
-    }
-    // Si está usando ?r=, NO seteamos basePath (queda vacío)
+    // En modo ?r=, Slim debe ver basePath vacío
+    $app->setBasePath('');
 } else {
-    $basePath = (string)($_ENV['BASE_PATH'] ?? getenv('BASE_PATH') ?? '');
-    $basePath = rtrim(trim($basePath), '/');
-    if ($basePath !== '') {
-        $app->setBasePath($basePath);
+    // Modo normal:
+    if ($isAzure) {
+        $app->setBasePath('/index.php');
+    } else {
+        // Local (XAMPP/subcarpeta)
+        $basePath = (string)($_ENV['BASE_PATH'] ?? getenv('BASE_PATH') ?? '');
+        $basePath = rtrim(trim($basePath), '/');
+        if ($basePath !== '') {
+            $app->setBasePath($basePath);
+        }
     }
 }
 
