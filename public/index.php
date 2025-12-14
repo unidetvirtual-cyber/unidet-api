@@ -9,23 +9,37 @@ use Psr\Http\Server\RequestHandlerInterface as RequestHandler;
 
 require __DIR__ . '/../vendor/autoload.php';
 
+/* ===== .env (safe) ===== */
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->safeLoad();
 
-/* detectar Azure */
-$isAzure = (bool)(getenv('WEBSITE_INSTANCE_ID') || getenv('WEBSITE_SITE_NAME'));
+/* ===== normalizar routing por ?r= =====
+   Esto permite:
+   /index.php?r=ping
+   /unidet-api/public/index.php?r=ping
+*/
+if (isset($_GET['r']) && is_string($_GET['r']) && trim($_GET['r']) !== '') {
+    $route = '/' . ltrim(trim((string)$_GET['r']), '/');
 
-$app = AppFactory::create();
+    $rest = $_GET;
+    unset($rest['r']);
+    $qs = http_build_query($rest);
 
-/* basePath */
-if ($isAzure) {
-    // Azure: pegarás como /index.php/...
-    $app->setBasePath('/index.php');
-} else {
-    // Local (XAMPP)
-    $app->setBasePath('/unidet-api/public');
+    $_SERVER['REQUEST_URI']  = $route . ($qs ? ('?' . $qs) : '');
+    $_SERVER['QUERY_STRING'] = $qs;
+    $_SERVER['PATH_INFO']    = $route;
+
+    // Para que PHP/Slim tenga un "script" coherente
+    $_SERVER['SCRIPT_NAME']  = '/index.php';
 }
 
+/* ===== crear Slim ===== */
+$app = AppFactory::create();
+
+/* IMPORTANTe: para modo ?r=, basePath debe ser vacío */
+$app->setBasePath('');
+
+/* middlewares */
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 
@@ -62,6 +76,7 @@ $app->add(function (Request $request, RequestHandler $handler) use ($allowedOrig
         ->withHeader('Access-Control-Allow-Credentials', 'true');
 });
 
+/* rutas */
 require __DIR__ . '/../src/Routes.php';
 
 $app->run();
