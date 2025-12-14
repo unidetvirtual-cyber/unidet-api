@@ -19,7 +19,17 @@ use UnidetApi\Faq;
 
 
 /** @var App $app */
+///////////////////===========================================
+$app->get('/', function (Request $request, Response $response) {
+    $response->getBody()->write(json_encode([
+        'ok' => true,
+        'message' => 'UNIDET API online',
+        'try' => ['/index.php/ping', '/index.php/news', '/index.php/courses']
+    ], JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json');
+});
 
+///////////////////===========================================
 /* =========================================================
  * Ping básico
  * =======================================================*/
