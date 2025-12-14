@@ -23,11 +23,29 @@ $app = AppFactory::create();
 /**
  * BASE_PATH:
  * - Local XAMPP (si estás en subcarpeta): /unidet-api/public (o lo que uses)
- * - Azure con php -S: NO uses /index.php
+ * - Azure: entramos como /index.php/...
  */
 $isAzure = getenv('WEBSITE_INSTANCE_ID') || getenv('WEBSITE_SITE_NAME');
 
-// En Azure vas a entrar como /index.php/...
+/* =========================================================
+ * AZURE FALLBACK ROUTER (NO rompe nada)
+ * =========================================================
+ * Si Azure no enruta bien /index.php/<ruta> en algunas rutas,
+ * puedes llamar también:
+ *   /index.php?r=/news
+ *   /index.php?r=/courses
+ *
+ * Esto NO afecta si NO usas ?r=.
+ */
+if ($isAzure && isset($_GET['r']) && is_string($_GET['r'])) {
+    $route = '/' . ltrim($_GET['r'], '/');
+
+    // Simula que llegó como /index.php/<ruta>
+    $_SERVER['REQUEST_URI'] = '/index.php' . $route;
+    $_SERVER['PATH_INFO']   = $route;
+}
+
+// BasePath
 if ($isAzure) {
     $app->setBasePath('/index.php');
 } else {
@@ -38,7 +56,6 @@ if ($isAzure) {
         $app->setBasePath($basePath);
     }
 }
-
 
 $app->addRoutingMiddleware();
 $app->addBodyParsingMiddleware();
@@ -52,10 +69,7 @@ $app->addErrorMiddleware($appDebug, true, true);
 
 /* =========================
  * CORS
- * =========================
- * En Azure pon ALLOWED_ORIGINS con comas:
- * https://tu-frontend.com,http://localhost:5173
- */
+ * ========================= */
 $allowedOriginsEnv = (string)($_ENV['ALLOWED_ORIGINS'] ?? getenv('ALLOWED_ORIGINS') ?? 'http://localhost:5173');
 $allowedOrigins = array_values(array_filter(array_map('trim', explode(',', $allowedOriginsEnv))));
 
@@ -66,8 +80,6 @@ $app->options('/{routes:.+}', function (Request $request, Response $response) {
 $app->add(function (Request $request, RequestHandler $handler) use ($allowedOrigins): Response {
     $origin = $request->getHeaderLine('Origin');
 
-    // Si viene Origin y está en allowlist, lo devolvemos. Si no viene Origin (Postman/browser directo),
-    // devolvemos el primero de la lista para no romper.
     $allowOrigin = $allowedOrigins[0] ?? 'http://localhost:5173';
     if ($origin && in_array($origin, $allowedOrigins, true)) {
         $allowOrigin = $origin;
