@@ -1,26 +1,36 @@
 <?php
 declare(strict_types=1);
 
-/**
- * Wrapper para soportar: /index.php?r=/news
- * Convierte r en PATH_INFO/REQUEST_URI y luego carga Slim (public/index.php)
- */
-if (isset($_GET['r'])) {
-    $r = (string) $_GET['r'];
-    if ($r === '') { $r = '/'; }
-    if ($r[0] !== '/') { $r = '/' . $r; }
+use Slim\Factory\AppFactory;
 
-    $qs = $_GET;
-    unset($qs['r']);
-    $query = http_build_query($qs);
+require __DIR__ . '/../vendor/autoload.php';
 
-    $_SERVER['PATH_INFO'] = $r;
-    $_SERVER['ORIG_PATH_INFO'] = $r;
-    $_SERVER['REQUEST_URI'] = $r . ($query ? ('?' . $query) : '');
-    $_SERVER['QUERY_STRING'] = $query;
+$app = AppFactory::create();
 
-    $_SERVER['PHP_SELF'] = '/index.php' . $r;
-    $_SERVER['SCRIPT_NAME'] = '/index.php';
-}
+require __DIR__ . '/../src/Routes.php';
 
-require __DIR__ . '/public/index.php';
+$app->addRoutingMiddleware();
+
+// CORS preflight
+$app->options('/{routes:.+}', function ($request, $response) {
+    return $response;
+});
+
+// CORS headers
+$app->add(function ($request, $handler) {
+    $response = $handler->handle($request);
+
+    $origin = getenv('CORS_ALLOWED_ORIGINS') ?: ($_ENV['CORS_ALLOWED_ORIGINS'] ?? '');
+    if ($origin) {
+        $response = $response
+            ->withHeader('Access-Control-Allow-Origin', $origin)
+            ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With')
+            ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    }
+
+    return $response;
+});
+
+$app->addErrorMiddleware(true, true, true);
+
+$app->run();
