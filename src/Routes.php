@@ -19,17 +19,7 @@ use UnidetApi\Faq;
 
 
 /** @var App $app */
-///////////////////===========================================
-$app->get('/', function (Request $request, Response $response) {
-    $response->getBody()->write(json_encode([
-        'ok' => true,
-        'message' => 'UNIDET API online',
-        'try' => ['/index.php/ping', '/index.php/news', '/index.php/courses']
-    ], JSON_UNESCAPED_UNICODE));
-    return $response->withHeader('Content-Type', 'application/json');
-});
 
-///////////////////===========================================
 /* =========================================================
  * Ping básico
  * =======================================================*/
@@ -1736,20 +1726,3 @@ $app->delete('/admin/users/{id}', function (Request $request, Response $response
 
     return $response->withHeader('Content-Type', 'application/json');
 })->add(Middleware::jwtAuth(['superadmin']));
-
-$app->any('/__debug', function ($req, $res) {
-    $data = [
-        'ok' => true,
-        'uri' => (string)$req->getUri(),
-        'path' => $req->getUri()->getPath(),
-        'server' => [
-            'REQUEST_URI' => $_SERVER['REQUEST_URI'] ?? null,
-            'PATH_INFO' => $_SERVER['PATH_INFO'] ?? null,
-            'SCRIPT_NAME' => $_SERVER['SCRIPT_NAME'] ?? null,
-            'QUERY_STRING' => $_SERVER['QUERY_STRING'] ?? null,
-        ],
-    ];
-    $res->getBody()->write(json_encode($data));
-    return $res->withHeader('Content-Type', 'application/json');
-});
-

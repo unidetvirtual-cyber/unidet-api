@@ -1,6 +1,5 @@
-/vendor/
 .env
-.env.local
-.vscode/
-.idea/
-/.DS_Store
+vendor/
+public/uploads/
+outputs/
+*.log
